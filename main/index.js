@@ -204,11 +204,6 @@ ipcMain.on('pet:hide', () => {
   if (mainWindow) mainWindow.hide();
 });
 
-// IPC: 透明区域点击穿透
-ipcMain.on('pet:click-through', (_e, enable) => {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  mainWindow.setIgnoreMouseEvents(enable, { forward: true });
-});
 
 // IPC: 显示对话气泡（独立窗口，3秒防抖）
 let lastSpeechTime = 0;
