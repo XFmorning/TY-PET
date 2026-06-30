@@ -18,6 +18,7 @@ let isQuitting = false;
 let randomTimer = null;
 let speechHideTimer = null;
 let lastKeyboardTime = 0;
+let keyboardMonitorTimer = null;
 
 function createPetWindow() {
   const savedW = settings.get('windowWidth') || 300;
@@ -266,13 +267,17 @@ app.whenReady().then(() => {
   scheduleRandomAction();
 
   // 全局键盘监听
-  startKeyboardMonitor(() => {
-    const now = Date.now();
-    if (now - lastKeyboardTime < 11000) return;
-    if (stateMachine.getState() !== STATES.IDLE) return;
-    lastKeyboardTime = now;
-    stateMachine.transition(STATES.TYPING);
-    playAnimation(STATES.TYPING);
+  keyboardMonitorTimer = startKeyboardMonitor(() => {
+    try {
+      const now = Date.now();
+      if (now - lastKeyboardTime < 11000) return;
+      if (stateMachine.getState() !== STATES.IDLE) return;
+      lastKeyboardTime = now;
+      stateMachine.transition(STATES.TYPING);
+      playAnimation(STATES.TYPING);
+    } catch (e) {
+      console.error('keyboard error:', e);
+    }
   });
 
   stateMachine.onStateChange((state) => {
@@ -288,7 +293,7 @@ app.whenReady().then(() => {
 
 app.on('before-quit', () => {
   isQuitting = true;
-  stopKeyboardMonitor();
+  stopKeyboardMonitor(keyboardMonitorTimer);
 });
 
 app.on('window-all-closed', () => {

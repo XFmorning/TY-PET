@@ -1,35 +1,27 @@
-const { globalShortcut } = require('electron');
+const { powerMonitor } = require('electron');
 
-// 注册所有打字常用键的全局快捷键
-const TYPING_KEYS = [
-  'A','B','C','D','E','F','G','H','I','J','K','L','M',
-  'N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
-  '0','1','2','3','4','5','6','7','8','9',
-  'Space','Enter','Backspace','Tab','Delete'
-];
+let pollTimer = null;
+let prevIdleTime = 0;
 
-let callbacks = [];
+// 通过系统空闲时间检测用户活动（不拦截任何输入）
+function startKeyboardMonitor(onUserActive) {
+  prevIdleTime = powerMonitor.getSystemIdleTime();
 
-function startKeyboardMonitor(onKeyPress) {
-  callbacks.push(onKeyPress);
-
-  if (callbacks.length === 1) {
-    // 首次调用才注册快捷键
-    for (const key of TYPING_KEYS) {
-      try {
-        globalShortcut.register(key, () => {
-          for (const cb of callbacks) cb();
-        });
-      } catch (e) {
-        // 忽略单个键注册失败
-      }
+  pollTimer = setInterval(() => {
+    const idle = powerMonitor.getSystemIdleTime();
+    // 空闲时间突然变小 = 用户有输入（键盘/鼠标）
+    if (idle < prevIdleTime) {
+      onUserActive();
     }
-  }
+    prevIdleTime = idle;
+  }, 300);
+
+  return pollTimer;
 }
 
-function stopKeyboardMonitor() {
-  globalShortcut.unregisterAll();
-  callbacks = [];
+function stopKeyboardMonitor(timer) {
+  if (timer) clearInterval(timer);
+  pollTimer = null;
 }
 
 module.exports = { startKeyboardMonitor, stopKeyboardMonitor };
