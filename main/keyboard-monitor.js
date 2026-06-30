@@ -13,19 +13,20 @@ function startKeyboardMonitor(onKeyPress) {
     const idle = powerMonitor.getSystemIdleTime();
 
     // 空闲时间没增加 → 有用户活动
-    if (idle <= prevIdleTime + 0.2) {
+    if (idle <= prevIdleTime + 0.5) {
       consecutiveKeyLike++;
     } else {
       consecutiveKeyLike = 0;
     }
 
-    // 连续采样到活动2次以上才认定为"打字"
-    if (consecutiveKeyLike === 3) {
+    // 连续4秒都有活动才认定为打字
+    if (consecutiveKeyLike >= 4) {
+      consecutiveKeyLike = 0;
       onKeyPress();
     }
 
     prevIdleTime = idle;
-  }, 300);
+  }, 1000);
 
   return pollTimer;
 }
