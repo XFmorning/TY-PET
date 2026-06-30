@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline';">
+  <link rel="stylesheet" href="style.css">
+  <title>桌面宠物 - 管理</title>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🐾 桌面宠物管理</h1>
+      <span id="currentState" class="state-badge">待机中</span>
+    </header>
+
+    <section class="card">
+      <h2>状态信息</h2>
+      <div class="info-grid">
+        <div class="info-item">
+          <label>当前动画</label>
+          <span id="stateDisplay">待机</span>
+        </div>
+        <div class="info-item">
+          <label>随机动作</label>
+          <span id="randomStatus">已启用</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>动画列表</h2>
+      <div class="anim-list" id="animList">
+        <div class="anim-item" data-id="idle">
+          <span class="anim-name">待机</span>
+          <span class="anim-badge loop">循环</span>
+        </div>
+        <div class="anim-item" data-id="greet">
+          <span class="anim-name">打招呼</span>
+          <span class="anim-badge">单次</span>
+        </div>
+        <div class="anim-item" data-id="playful">
+          <span class="anim-name">调皮</span>
+          <span class="anim-badge">单次</span>
+        </div>
+        <div class="anim-item" data-id="squat">
+          <span class="anim-name">蹲下</span>
+          <span class="anim-badge">单次</span>
+        </div>
+        <div class="anim-item" data-id="typing">
+          <span class="anim-name">打字</span>
+          <span class="anim-badge">单次</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>对话文本</h2>
+      <div class="speech-row">
+        <label>打招呼</label>
+        <input type="text" id="speechGreet" class="input-speech" maxlength="50">
+      </div>
+      <div class="speech-row">
+        <label>调皮</label>
+        <input type="text" id="speechPlayful" class="input-speech" maxlength="50">
+      </div>
+      <div class="speech-row">
+        <label>蹲下</label>
+        <input type="text" id="speechSquat" class="input-speech" maxlength="50">
+      </div>
+      <div class="speech-row">
+        <label>打字</label>
+        <input type="text" id="speechTyping" class="input-speech" maxlength="50">
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>设置</h2>
+      <div class="setting-row">
+        <label>
+          <input type="checkbox" id="chkAlwaysOnTop" checked>
+          窗口置顶
+        </label>
+      </div>
+      <div class="setting-row">
+        <label>
+          <input type="checkbox" id="chkRandom" checked>
+          启用随机动作
+        </label>
+      </div>
+      <div class="setting-row">
+        <label>
+          随机间隔 (秒):
+          <input type="number" id="randomInterval" value="120" min="30" max="600" class="input-num">
+        </label>
+      </div>
+      <div class="setting-row">
+        <label>
+          <input type="checkbox" id="chkAutoStart">
+          开机自启
+        </label>
+      </div>
+    </section>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

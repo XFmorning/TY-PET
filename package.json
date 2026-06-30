@@ -1,0 +1,36 @@
+{
+  "name": "desktop-pet",
+  "version": "1.0.0",
+  "description": "桌面宠物 - 透明 WebM 桌面叠加应用",
+  "main": "main/index.js",
+  "scripts": {
+    "start": ".\\node_modules\\electron\\dist\\electron.exe .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.desktop.pet",
+    "productName": "桌面宠物",
+    "files": [
+      "main/**/*",
+      "renderer/**/*",
+      "assets/**/*",
+      "animations/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.png"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.png"
+    }
+  },
+  "devDependencies": {
+    "electron": "^42.5.1",
+    "electron-builder": "^24.0.0"
+  },
+  "dependencies": {
+    "ffmpeg-static": "^5.3.0"
+  }
+}
