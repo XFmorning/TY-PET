@@ -21,8 +21,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       squat: '蹲下',
       typing: '打字'
     };
-    document.getElementById('currentState').textContent = stateMap[state] || state;
-    document.getElementById('stateDisplay').textContent = stateMap[state] || state;
+    const label = stateMap[state] || state;
+    document.getElementById('currentState').textContent = label;
+    document.getElementById('stateDisplay').textContent = label;
   });
 
   document.getElementById('chkAlwaysOnTop').addEventListener('change', (e) => {

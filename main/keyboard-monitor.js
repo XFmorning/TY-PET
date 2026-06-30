@@ -1,27 +1,34 @@
-const { powerMonitor } = require('electron');
+const { globalShortcut } = require('electron');
 
-let pollTimer = null;
-let prevIdleTime = 0;
+// 只注册字母键，不拦截输入（Windows RegisterHotKey 不吞噬按键）
+const LETTER_KEYS = [
+  'A','B','C','D','E','F','G','H','I','J','K','L','M',
+  'N','O','P','Q','R','S','T','U','V','W','X','Y','Z'
+];
 
-// 通过系统空闲时间检测用户活动（不拦截任何输入）
-function startKeyboardMonitor(onUserActive) {
-  prevIdleTime = powerMonitor.getSystemIdleTime();
+let callbacks = [];
+let registered = false;
 
-  pollTimer = setInterval(() => {
-    const idle = powerMonitor.getSystemIdleTime();
-    // 空闲时间突然变小 = 用户有输入（键盘/鼠标）
-    if (idle < prevIdleTime) {
-      onUserActive();
+function startKeyboardMonitor(onLetterKey) {
+  callbacks.push(onLetterKey);
+  if (registered) return;
+  registered = true;
+
+  for (const key of LETTER_KEYS) {
+    try {
+      globalShortcut.register(key, () => {
+        for (const cb of callbacks) cb();
+      });
+    } catch (e) {
+      // 忽略单个键注册失败
     }
-    prevIdleTime = idle;
-  }, 300);
-
-  return pollTimer;
+  }
 }
 
-function stopKeyboardMonitor(timer) {
-  if (timer) clearInterval(timer);
-  pollTimer = null;
+function stopKeyboardMonitor() {
+  globalShortcut.unregisterAll();
+  callbacks = [];
+  registered = false;
 }
 
 module.exports = { startKeyboardMonitor, stopKeyboardMonitor };

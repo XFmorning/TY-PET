@@ -204,6 +204,12 @@ ipcMain.on('pet:hide', () => {
   if (mainWindow) mainWindow.hide();
 });
 
+// IPC: 透明区域点击穿透
+ipcMain.on('pet:click-through', (_e, enable) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.setIgnoreMouseEvents(enable, { forward: true });
+});
+
 // IPC: 显示对话气泡（独立窗口，3秒防抖）
 let lastSpeechTime = 0;
 ipcMain.on('pet:show-speech', (_e, text) => {
@@ -270,7 +276,7 @@ app.whenReady().then(() => {
   keyboardMonitorTimer = startKeyboardMonitor(() => {
     try {
       const now = Date.now();
-      if (now - lastKeyboardTime < 11000) return;
+      if (now - lastKeyboardTime < 10000) return;
       if (stateMachine.getState() !== STATES.IDLE) return;
       lastKeyboardTime = now;
       stateMachine.transition(STATES.TYPING);

@@ -27,5 +27,8 @@ contextBridge.exposeInMainWorld('petAPI', {
   },
   showSpeech: (text) => {
     ipcRenderer.send('pet:show-speech', text);
+  },
+  setClickThrough: (enable) => {
+    ipcRenderer.send('pet:click-through', enable);
   }
 });
