@@ -1,73 +1,111 @@
-const { powerMonitor } = require('electron');
-const { spawnSync } = require('child_process');
-const path = require('path');
+const koffi = require('koffi');
 
-// 前台是打字软件时才触发
-const TYPING_PROCS = [
-  // 浏览器
-  'chrome', 'msedge', 'firefox', 'opera', 'brave', 'vivaldi', 'chromium',
-  // 编辑器/IDE
-  'code', 'notepad++', 'sublime_text', 'atom', 'vim', 'nvim',
-  'idea64', 'webstorm64', 'pycharm64', 'clion64', 'rider64', 'goland64',
-  'eclipse', 'androidstudio', 'xcode',
-  // 办公
-  'WINWORD', 'EXCEL', 'ONENOTE', 'OUTLOOK', 'POWERPNT',
-  'notepad', 'wordpad', 'wps', 'wpp', 'et',
-  // 聊天
-  'WeChat', 'WeChatAppEx', 'qq', 'TIM', 'dingtalk', 'lark',
-  'slack', 'discord', 'telegram', 'whatsapp',
-  // 终端
-  'cmd', 'powershell', 'WindowsTerminal', 'mintty', 'bash',
-  // 笔记
-  'Obsidian', 'Notion', 'evernote', 'typora', 'marktext',
-  // 其他
-  'foxmail', 'thunderbird', 'postman', 'dbvis'
-];
+// 绑定 Win32 GetAsyncKeyState（只读查询按键状态，不拦截输入）
+const lib = koffi.load('user32.dll');
+const GetAsyncKeyState = lib.func('GetAsyncKeyState', 'short', ['int']);
 
-const FG_APP = path.join(__dirname, 'ForegroundApp.exe');
+// 需要检测的打字相关按键
+const TYPING_KEYS = (() => {
+  const keys = [];
+  for (let i = 0x41; i <= 0x5A; i++) keys.push(i);          // A-Z
+  for (let i = 0x30; i <= 0x39; i++) keys.push(i);          // 0-9
+  for (let i = 0x60; i <= 0x69; i++) keys.push(i);          // 小键盘
+  keys.push(
+    0x20, 0x0D, 0x08, 0x09,                                  // Space Enter Back Tab
+    0xBD, 0xBB, 0xDB, 0xDD, 0xBA, 0xDE, 0xBC, 0xBE, 0xBF, 0xDC, 0xC0
+  );
+  return keys;
+})();
+
+const SAMPLE_MS = 50;
+
+// ========== 按键边缘检测 + 按键计数 ==========
+let prevDown = new Array(TYPING_KEYS.length).fill(false);
+let keystrokeAccumulator = 0;
+
+// ========== 滚动窗口（判定是否正在打字） ==========
+const WINDOW_SIZE = 20;        // 20 个样本 ≈ 1 秒
+const ACTIVITY_THRESHOLD = 5;  // ≥5 活跃样本 → 打字中
+let ringBuffer = new Array(WINDOW_SIZE).fill(0);
+let ringIndex = 0;
+let activeSum = 0;
+
+// ========== 上次按键时间（用于空闲超时判定） ==========
+let lastKeyTime = 0;
+
 let pollTimer = null;
-let matchCount = 0;
 
-function getForegroundProcess() {
-  try {
-    const result = spawnSync(FG_APP, [], { timeout: 2000, encoding: 'utf-8' });
-    return (result.stdout || '').trim().toLowerCase();
-  } catch { return ''; }
+// 单次采样：返回本次是否检测到新按键
+function sample() {
+  let newPresses = 0;
+  let anyDown = false;
+
+  for (let i = 0; i < TYPING_KEYS.length; i++) {
+    const down = !!(GetAsyncKeyState(TYPING_KEYS[i]) & 0x8000);
+    if (down && !prevDown[i]) newPresses++;  // 上升沿检测 = 一次按键
+    if (down) anyDown = true;
+    prevDown[i] = down;
+  }
+
+  if (newPresses > 0) keystrokeAccumulator += newPresses;
+  if (anyDown) lastKeyTime = Date.now();
+
+  return anyDown;
+}
+
+// 重置按键计数
+function resetKeystrokes() { keystrokeAccumulator = 0; }
+
+// 获取累计按键次数
+function getKeystrokes() { return keystrokeAccumulator; }
+
+// 距离最后一次按键过去了多少毫秒
+function getIdleMs() {
+  if (lastKeyTime === 0) return Infinity;
+  return Date.now() - lastKeyTime;
 }
 
 function startKeyboardMonitor(onKeyPress) {
+  ringBuffer.fill(0);
+  ringIndex = 0;
+  activeSum = 0;
+  prevDown.fill(false);
+  keystrokeAccumulator = 0;
+  lastKeyTime = 0;
+
   pollTimer = setInterval(() => {
-    const idle = powerMonitor.getSystemIdleTime();
+    activeSum -= ringBuffer[ringIndex];
+    const active = sample() ? 1 : 0;
+    ringBuffer[ringIndex] = active;
+    activeSum += active;
+    ringIndex = (ringIndex + 1) % WINDOW_SIZE;
 
-    // 空闲超过3秒 → 用户没有输入 → 重置计数
-    if (idle >= 3) {
-      matchCount = 0;
-      return;
+    if (activeSum >= ACTIVITY_THRESHOLD) {
+      ringBuffer.fill(0);
+      ringIndex = 0;
+      activeSum = 0;
+      onKeyPress();
     }
-
-    // 检查前台是否打字软件
-    const proc = getForegroundProcess();
-    if (!proc) { matchCount = 0; return; }
-
-    if (TYPING_PROCS.includes(proc)) {
-      matchCount++;
-      // 连续2次匹配（2秒）才触发
-      if (matchCount >= 2) {
-        matchCount = 0;
-        onKeyPress();
-      }
-    } else {
-      matchCount = 0;
-    }
-  }, 1000);
+  }, SAMPLE_MS);
 
   return pollTimer;
 }
 
 function stopKeyboardMonitor(timer) {
   if (timer) clearInterval(timer);
-  matchCount = 0;
+  ringBuffer.fill(0);
+  ringIndex = 0;
+  activeSum = 0;
+  prevDown.fill(false);
+  keystrokeAccumulator = 0;
+  lastKeyTime = 0;
   pollTimer = null;
 }
 
-module.exports = { startKeyboardMonitor, stopKeyboardMonitor };
+module.exports = {
+  startKeyboardMonitor,
+  stopKeyboardMonitor,
+  getKeystrokes,
+  resetKeystrokes,
+  getIdleMs
+};

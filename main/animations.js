@@ -1,11 +1,15 @@
 const path = require('path');
 
 const ANIMATIONS = {
-  idle:    { id: 'idle',    state: 'idle',    src: 'animations/待机.webm',    loop: true },
-  greet:   { id: 'greet',   state: 'greet',   src: 'animations/打招呼.webm',  loop: false },
-  playful: { id: 'playful', state: 'playful', src: 'animations/调皮.webm',   loop: false },
-  squat:   { id: 'squat',   state: 'squat',   src: 'animations/蹲下.webm',    loop: false },
-  typing:  { id: 'typing',  state: 'typing',  src: 'animations/键盘打字.webm', loop: false },
+  idle:      { id: 'idle',      state: 'idle',      src: 'animations/待机.webm',       loop: true },
+  greet:     { id: 'greet',     state: 'greet',     src: 'animations/打招呼.webm',     loop: false },
+  playful:   { id: 'playful',   state: 'playful',   src: 'animations/调皮.webm',      loop: false },
+  squat:     { id: 'squat',     state: 'squat',     src: 'animations/蹲下.webm',       loop: false },
+  typing:    { id: 'typing',    state: 'typing',    src: 'animations/键盘打字.webm',    loop: false },
+  circle:    { id: 'circle',    state: 'circle',    src: 'renderer/pet/画圈圈.webm',    loop: false },
+  'work-start': { id: 'work-start', state: 'work-start', src: 'renderer/pet/开始打字-1.webm', loop: false },
+  working:   { id: 'working',   state: 'working',   src: 'renderer/pet/打字中-1.webm',   loop: true },
+  'work-end':   { id: 'work-end',   state: 'work-end',   src: 'renderer/pet/打字结束-1.webm', loop: false },
 };
 
 function resolveAnimationPath(anim) {

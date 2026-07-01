@@ -25,7 +25,16 @@ contextBridge.exposeInMainWorld('petAPI', {
   openContextMenu: (x, y) => {
     ipcRenderer.send('pet:context-menu', x, y);
   },
-  showSpeech: (text) => {
-    ipcRenderer.send('pet:show-speech', text);
+  showSpeech: (text, force) => {
+    ipcRenderer.send('pet:show-speech', text, !!force);
+  },
+  videoDuration: (state, duration) => {
+    ipcRenderer.send('pet:video-duration', state, duration);
+  },
+  moveWindow: (x, y) => {
+    ipcRenderer.send('pet:move-window', x, y);
+  },
+  saveSize: () => {
+    ipcRenderer.send('pet:save-size');
   },
 });

@@ -1,4 +1,8 @@
-const STATES = { IDLE: 'idle', GREET: 'greet', PLAYFUL: 'playful', SQUAT: 'squat', TYPING: 'typing' };
+const STATES = {
+  IDLE: 'idle', GREET: 'greet', PLAYFUL: 'playful',
+  SQUAT: 'squat', TYPING: 'typing', CIRCLE: 'circle',
+  WORK_START: 'work-start', WORKING: 'working', WORK_END: 'work-end'
+};
 
 class StateMachine {
   constructor() {
