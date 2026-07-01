@@ -10,12 +10,6 @@ html, body {
   padding: 4px;
   max-height: calc(100vh - 8px);
   overflow-y: auto;
-  background: rgba(22, 22, 36, 0.97);
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 #menu::-webkit-scrollbar { width: 3px; }
 #menu::-webkit-scrollbar-track { background: transparent; }

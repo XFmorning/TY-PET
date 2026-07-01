@@ -46,13 +46,4 @@ contextBridge.exposeInMainWorld('petAPI', {
   quitApp: () => {
     ipcRenderer.send('pet:quit');
   },
-  showChat: () => {
-    ipcRenderer.send('pet:show-chat');
-  },
-  getAiEnabled: () => {
-    return ipcRenderer.invoke('pet:get-ai-enabled');
-  },
-  toggleAi: () => {
-    return ipcRenderer.invoke('pet:toggle-ai');
-  },
 });
