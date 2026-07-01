@@ -37,7 +37,7 @@ class StateMachine {
     this.clickTimestamps = this.clickTimestamps.filter(t => now - t < 1000);
     this.clickTimestamps.push(now);
 
-    if (this.clickTimestamps.length >= 3) {
+    if (this.clickTimestamps.length >= 5) {
       this.clickTimestamps = [];
       return 'multi';
     }

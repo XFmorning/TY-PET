@@ -115,19 +115,71 @@ canvas.addEventListener('contextmenu', (e) => {
   window.petAPI.showContextMenu(e.screenX, e.screenY);
 });
 
+let longPressTimer = null;
+
 canvas.addEventListener('mousedown', (e) => {
-  if (e.button === 0) clickPending = true;
+  if (e.button !== 0) return;
+  clickPending = true;
+  dragPending = true;
+  dragOffsetX = e.screenX - window.screenX;
+  dragOffsetY = e.screenY - window.screenY;
+  dragStartX = e.screenX;
+  dragStartY = e.screenY;
+
+  clearTimeout(longPressTimer);
+  longPressTimer = setTimeout(() => {
+    if (clickPending) {
+      clickPending = false;
+      dragActive = true;
+      startPickup();
+    }
+  }, 300);
 });
 
-canvas.addEventListener('mousemove', () => {
-  clickPending = false;
+canvas.addEventListener('mousemove', (e) => {
+  if (!dragPending && !dragActive) return;
+
+  if (!dragActive) {
+    const dx = e.screenX - dragStartX;
+    const dy = e.screenY - dragStartY;
+    if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+
+    clickPending = false;
+    clearTimeout(longPressTimer);
+    dragActive = true;
+    startPickup();
+  }
+
+  if (!(e.buttons & 1)) {
+    dragEnd();
+    return;
+  }
+
+  window.petAPI.moveWindow(e.screenX - dragOffsetX, e.screenY - dragOffsetY);
+});
+
+canvas.addEventListener('mouseleave', () => {
+  if (dragActive || dragPending) {
+    clearTimeout(longPressTimer);
+    if (dragActive) {
+      dragEnd();
+      setTimeout(() => { pickupActive = false; dragPending = false; dragActive = false; }, 2000);
+    }
+    dragPending = false;
+    clickPending = false;
+  }
 });
 
 canvas.addEventListener('mouseup', (e) => {
-  if (e.button === 0 && clickPending) {
+  if (e.button !== 0) return;
+  clearTimeout(longPressTimer);
+  if (dragActive) {
+    dragEnd();
+  } else if (clickPending) {
     clickPending = false;
     window.petAPI.onClick();
   }
+  dragPending = false;
 });
 
 // ===== 拎起来 / 放下去（使用预加载的 off-DOM video） =====
@@ -178,45 +230,10 @@ function dragEnd() {
   if (pickupActive) startPutdown();
 }
 
-// ===== 拖放 =====
-dragDot.addEventListener('pointerdown', (e) => {
-  if (e.button !== 0) return;
+// 顶部圆点点击 → 触发 AI 对话
+dragDot.addEventListener('click', (e) => {
   e.stopPropagation();
-  dragDot.setPointerCapture(e.pointerId);
-
-  dragPending = true;
-  dragOffsetX = e.screenX - window.screenX;
-  dragOffsetY = e.screenY - window.screenY;
-  dragStartX = e.screenX;
-  dragStartY = e.screenY;
-});
-
-dragDot.addEventListener('pointermove', (e) => {
-  if (!dragPending && !dragActive) return;
-
-  if (!dragActive) {
-    const dx = e.screenX - dragStartX;
-    const dy = e.screenY - dragStartY;
-    if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
-
-    dragActive = true;
-    startPickup();
-  }
-
-  if (!(e.buttons & 1)) {
-    dragEnd();
-    return;
-  }
-
-  window.petAPI.moveWindow(e.screenX - dragOffsetX, e.screenY - dragOffsetY);
-});
-
-dragDot.addEventListener('pointerup', (e) => {
-  if (e.button !== 0) return;
-  if (dragActive) {
-    dragEnd();
-  }
-  dragPending = false;
+  window.petAPI.showChat();
 });
 
 // ===== 自定义右键菜单 =====

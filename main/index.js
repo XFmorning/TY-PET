@@ -170,19 +170,20 @@ function scheduleRandomAction() {
 // IPC: 点击处理
 ipcMain.on('pet:click', () => {
   const clickType = stateMachine.handleClick();
-  if (!clickType) return;
 
   if (clickType === 'multi') {
+    // 5次 → 调皮
     stateMachine.transition(STATES.PLAYFUL);
     playAnimation(STATES.PLAYFUL);
-    lastGreetTime = Date.now();
-  } else if (stateMachine.getState() === STATES.IDLE) {
+    return;
+  }
+
+  // 1次 → 打招呼
+  if (stateMachine.getState() === STATES.IDLE) {
     if (Date.now() - lastGreetTime < 1500) return;
     lastGreetTime = Date.now();
     stateMachine.transition(STATES.GREET);
     playAnimation(STATES.GREET);
-  } else {
-    playAnimation(stateMachine.getState());
   }
 });
 
