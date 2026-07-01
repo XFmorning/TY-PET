@@ -5,6 +5,7 @@ const { createTray } = require('./tray');
 const { getByState, getById } = require('./animations');
 const settings = require('./settings');
 const keyboardMonitor = require('./keyboard-monitor');
+const aiService = require('./ai-service');
 
 // 内存优化：限制渲染进程数、禁用磁盘缓存、限制 JS 堆
 app.commandLine.appendSwitch('renderer-process-limit', '1');
@@ -22,6 +23,8 @@ let isQuitting = false;
 let randomTimer = null;
 let keyboardMonitorTimer = null;
 let ctxMenuWindow = null;
+let chatWindow = null;
+let speechBubbleWindow = null;
 let lastGreetTime = 0;
 const stateCooldownUntil = {};     // state → 冷却结束时间戳
 const videoDurations = {};         // state → 视频时长(秒)
@@ -260,7 +263,10 @@ ipcMain.on('pet:animation-ended', () => {
     if (savedWindowSize) {
       const { width, height } = savedWindowSize;
       savedWindowSize = null;
-      setTimeout(() => animateRestoreSize(width, height), 50);
+      setTimeout(() => {
+        animateRestoreSize(width, height);
+        setTimeout(positionAllOverlays, 1000);
+      }, 50);
     }
     return;
   }
@@ -273,7 +279,10 @@ ipcMain.on('pet:animation-ended', () => {
   if (savedWindowSize) {
     const { width, height } = savedWindowSize;
     savedWindowSize = null;
-    setTimeout(() => animateRestoreSize(width, height), 50);
+    setTimeout(() => {
+      animateRestoreSize(width, height);
+      setTimeout(positionAllOverlays, 1000);
+    }, 50);
   }
 });
 
@@ -351,7 +360,9 @@ ipcMain.on('pet:move-window', (_e, x, y) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.setPosition(Math.round(x), Math.round(y));
   }
+  positionAllOverlays();
 });
+
 
 // ===== 右键菜单弹出窗口 =====
 function createCtxMenuWindow() {
@@ -440,6 +451,187 @@ ipcMain.on('ctx:quit', () => { app.quit(); });
 ipcMain.on('ctx:close', () => {
   if (ctxMenuWindow && !ctxMenuWindow.isDestroyed()) ctxMenuWindow.hide();
 });
+
+ipcMain.on('ctx:chat', () => {
+  if (ctxMenuWindow && !ctxMenuWindow.isDestroyed()) ctxMenuWindow.hide();
+  showChatWindow();
+});
+
+ipcMain.on('pet:show-chat', () => { showChatWindow(); });
+
+// ===== 聊天输入窗口（宠物正下方居中） =====
+function showChatWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (chatWindow && !chatWindow.isDestroyed()) {
+    chatWindow.show();
+    chatWindow.focus();
+    chatWindow.webContents.send('chat:focus');
+    return;
+  }
+  const [px, py] = mainWindow.getPosition();
+  const [pw, ph] = mainWindow.getSize();
+  chatWindow = new BrowserWindow({
+    width: 240, height: 32,
+    x: Math.round(px + pw / 2 - 120),
+    y: Math.round(py + ph + 2),
+    transparent: true, frame: false, alwaysOnTop: true,
+    resizable: false, skipTaskbar: true, hasShadow: false, show: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload-chat.js'),
+      nodeIntegration: false, contextIsolation: true, sandbox: false
+    }
+  });
+  chatWindow.loadFile(path.join(__dirname, '..', 'renderer', 'chat-input', 'index.html'));
+  chatWindow.on('blur', () => {
+    setTimeout(() => {
+      if (chatWindow && !chatWindow.isDestroyed() && !chatWindow.isFocused()) hideChatWindow();
+    }, 150);
+  });
+  chatWindow.on('closed', () => { chatWindow = null; });
+}
+
+function hideChatWindow() {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('pet:leave-chat');
+  if (chatWindow && !chatWindow.isDestroyed()) chatWindow.hide();
+}
+
+function positionChatWindow() {
+  if (!chatWindow || chatWindow.isDestroyed() || !chatWindow.isVisible()) return;
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const pet = mainWindow.getBounds();
+  const cw = chatWindow.getBounds().width;
+  chatWindow.setPosition(Math.round(pet.x + pet.width / 2 - cw / 2), Math.round(pet.y + pet.height + 2));
+}
+
+// 聊天消息处理
+ipcMain.on('chat:message', async (_e, text) => {
+  const ai = settings.getActiveAi();
+  if (!ai.enabled || !ai.url || !ai.apiKey) { showSpeechBubble('请先开启AI并配置URL和Key'); return; }
+  showSpeechBubble('...');
+  try {
+    const result = await aiService.chat(ai, text, []);
+    showSpeechBubble(result.reply);
+  } catch (e) {
+    console.error('[chat]', e);
+    showSpeechBubble(e.message || '唔…天依没听清呢');
+  }
+});
+
+ipcMain.on('chat:close', () => { hideChatWindow(); });
+
+ipcMain.on('chat:resize', (_e, w) => {
+  if (!chatWindow || chatWindow.isDestroyed()) return;
+  chatWindow.setBounds({ width: Math.max(80, Math.min(500, Math.round(w))), height: 32 });
+  positionChatWindow();
+});
+
+// ===== 纯主进程坐标（物理像素），和气泡窗口单位一致 =====
+function getPetTopCenter() {
+  const [x, y] = mainWindow.getPosition();
+  const [w] = mainWindow.getSize();
+  return { x: x + w / 2, y };
+}
+
+function positionBubble() {
+  if (!speechBubbleWindow || speechBubbleWindow.isDestroyed()) return;
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const topCenter = getPetTopCenter();
+  const sw = speechBubbleWindow.getBounds().width;
+  speechBubbleWindow.setPosition(Math.round(topCenter.x - sw / 2), Math.round(topCenter.y - 44));
+}
+
+// ===== 语音气泡窗口 =====
+function showSpeechBubble(text) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+
+  if (speechBubbleWindow && !speechBubbleWindow.isDestroyed() && speechBubbleWindow._ready) {
+    positionBubble();
+    speechBubbleWindow.show();
+    speechBubbleWindow.setAlwaysOnTop(true, 'screen-saver');
+    speechBubbleWindow.webContents.send('bubble:text', text);
+    resetSpeechTimer();
+    return;
+  }
+
+  if (!speechBubbleWindow || speechBubbleWindow.isDestroyed()) {
+    const topCenter = getPetTopCenter();
+    speechBubbleWindow = new BrowserWindow({
+      width: 200, height: 38,
+      x: Math.round(topCenter.x - 100), y: Math.round(topCenter.y - 44),
+      transparent: true, frame: false, alwaysOnTop: true,
+      resizable: false, skipTaskbar: true, hasShadow: false, show: false,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload-speech.js'),
+        nodeIntegration: false, contextIsolation: true, sandbox: false
+      }
+    });
+    speechBubbleWindow._ready = false;
+    speechBubbleWindow._pendingText = null;
+    speechBubbleWindow.webContents.on('did-finish-load', () => {
+      speechBubbleWindow._ready = true;
+      positionBubble();
+      if (speechBubbleWindow._pendingText) {
+        speechBubbleWindow.webContents.send('bubble:text', speechBubbleWindow._pendingText);
+        speechBubbleWindow._pendingText = null;
+      }
+      speechBubbleWindow.show();
+      speechBubbleWindow.setAlwaysOnTop(true, 'screen-saver');
+      resetSpeechTimer();
+    });
+    speechBubbleWindow.on('closed', () => { speechBubbleWindow = null; });
+    speechBubbleWindow.loadFile(path.join(__dirname, '..', 'renderer', 'speech-bubble', 'index.html'));
+    speechBubbleWindow._pendingText = text;
+    return;
+  }
+}
+
+let speechHideTimer;
+
+function resetSpeechTimer() {
+  clearTimeout(speechHideTimer);
+  speechHideTimer = setTimeout(() => {
+    if (speechBubbleWindow && !speechBubbleWindow.isDestroyed()) speechBubbleWindow.hide();
+  }, 4000);
+}
+
+ipcMain.on('bubble:resize', (_e, w) => {
+  if (!speechBubbleWindow || speechBubbleWindow.isDestroyed()) return;
+  const newW = Math.min(Math.round(w), 600);
+  const h = speechBubbleWindow.getSize()[1];
+  speechBubbleWindow.setSize(newW, h);
+  // 直接用新宽度 newW 算居中，避免 getBounds 延迟返回旧值导致偏左/偏右
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    const topCenter = getPetTopCenter();
+    speechBubbleWindow.setPosition(Math.round(topCenter.x - newW / 2), Math.round(topCenter.y - 44));
+  }
+});
+
+// IPC: AI 开关
+ipcMain.handle('pet:get-ai-enabled', () => { return !!(settings.get('ai') || {}).enabled; });
+ipcMain.handle('pet:toggle-ai', () => {
+  const ai = settings.get('ai') || {};
+  ai.enabled = !ai.enabled;
+  settings.set('ai', ai);
+  return ai.enabled;
+});
+ipcMain.handle('ctx:get-ai-state', () => { return !!(settings.get('ai') || {}).enabled; });
+ipcMain.on('ctx:toggle-ai', () => {
+  const ai = settings.get('ai') || {};
+  ai.enabled = !ai.enabled;
+  settings.set('ai', ai);
+  if (ctxMenuWindow && !ctxMenuWindow.isDestroyed()) ctxMenuWindow.webContents.send('ctx:ai-state', ai.enabled);
+  if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.webContents.send('pet:ai-state-changed', ai.enabled);
+});
+
+// IPC: AI 预设管理
+ipcMain.handle('ai:get', () => { return settings.get('ai') || {}; });
+ipcMain.handle('ai:set', (_e, val) => { settings.set('ai', val); return val; });
+
+// 拖动时同步更新覆盖层位置
+function positionAllOverlays() {
+  positionChatWindow();
+  positionBubble();
+}
 
 // IPC: 宠物右键菜单（和托盘风格一致）
 ipcMain.on('pet:context-menu', (event, x, y) => {
@@ -532,6 +724,8 @@ app.on('before-quit', () => {
   isQuitting = true;
   keyboardMonitor.stopKeyboardMonitor(keyboardMonitorTimer);
   if (ctxMenuWindow && !ctxMenuWindow.isDestroyed()) ctxMenuWindow.destroy();
+  if (chatWindow && !chatWindow.isDestroyed()) chatWindow.destroy();
+  if (speechBubbleWindow && !speechBubbleWindow.isDestroyed()) speechBubbleWindow.destroy();
 });
 
 app.on('window-all-closed', () => {

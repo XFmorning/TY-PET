@@ -8,5 +8,8 @@ contextBridge.exposeInMainWorld('settingsAPI', {
   },
   preview: (animId) => {
     ipcRenderer.send('pet:preview', animId);
+  },
+  onAiStateChanged: (callback) => {
+    ipcRenderer.on('pet:ai-state-changed', (_e, v) => callback(v));
   }
 });
