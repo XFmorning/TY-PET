@@ -6,4 +6,10 @@ contextBridge.exposeInMainWorld('menuAPI', {
   settings: () => ipcRenderer.send('ctx:settings'),
   quit: () => ipcRenderer.send('ctx:quit'),
   close: () => ipcRenderer.send('ctx:close'),
+  chat: () => ipcRenderer.send('ctx:chat'),
+  toggleAi: () => ipcRenderer.send('ctx:toggle-ai'),
+  onAiState: (cb) => {
+    ipcRenderer.on('ctx:ai-state', (_e, v) => cb(v));
+  },
+  getAiState: () => ipcRenderer.invoke('ctx:get-ai-state'),
 });

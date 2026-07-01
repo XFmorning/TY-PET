@@ -213,7 +213,9 @@ dragDot.addEventListener('pointermove', (e) => {
 
 dragDot.addEventListener('pointerup', (e) => {
   if (e.button !== 0) return;
-  if (dragActive) dragEnd();
+  if (dragActive) {
+    dragEnd();
+  }
   dragPending = false;
 });
 
@@ -233,7 +235,7 @@ const MENU_ITEMS = [
   ]},
 ];
 
-function buildContextMenu() {
+async function buildContextMenu() {
   const menu = document.getElementById('ctxMenu');
   menu.innerHTML = '';
   MENU_ITEMS.forEach((section, si) => {
@@ -256,6 +258,31 @@ function buildContextMenu() {
   // 管理区
   const mgmt = document.createElement('div');
   mgmt.className = 'menu-section';
+
+  // AI 开关
+  let aiOn = false;
+  try { aiOn = await window.petAPI.getAiEnabled(); } catch {}
+  const aiToggle = document.createElement('div');
+  aiToggle.className = 'menu-item';
+  aiToggle.innerHTML = aiOn
+    ? '<span class="icon">✅</span><span class="label">AI对话: 已开启</span>'
+    : '<span class="icon">⬜</span><span class="label">AI对话: 已关闭</span>';
+  aiToggle.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    hideContextMenu();
+    await window.petAPI.toggleAi();
+  });
+  mgmt.appendChild(aiToggle);
+
+  const chatItem = document.createElement('div');
+  chatItem.className = 'menu-item';
+  chatItem.innerHTML = '<span class="icon">💬</span><span class="label">和天依聊天</span>';
+  chatItem.addEventListener('click', (e) => {
+    e.stopPropagation();
+    hideContextMenu();
+    showChatInput();
+  });
+  mgmt.appendChild(chatItem);
 
   const hideItem = document.createElement('div');
   hideItem.className = 'menu-item';
@@ -293,11 +320,13 @@ function buildContextMenu() {
 
 let ctxMenuOpen = false;
 
-function showContextMenu(x, y) {
+async function showContextMenu(x, y) {
   if (ctxMenuOpen) return;
   ctxMenuOpen = true;
-  const menu = document.getElementById('ctxMenu');
 
+  await buildContextMenu();
+
+  const menu = document.getElementById('ctxMenu');
   // 先显示菜单以获取实际尺寸
   menu.classList.add('open');
   const mw = menu.offsetWidth;
@@ -323,4 +352,10 @@ function hideContextMenu() {
   ctxMenuOpen = false;
 }
 
-buildContextMenu();
+// ===== AI 聊天 =====
+function showChatInput() {
+  window.petAPI.showChat();
+}
+
+
+(async () => { await buildContextMenu(); })();
