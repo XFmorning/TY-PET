@@ -1,7 +1,7 @@
 {
-  "name": "desktop-pet",
+  "name": "ty-ai",
   "version": "1.0.0",
-  "description": "桌面宠物 - 透明 WebM 桌面叠加应用",
+  "description": "TY AI - 桌面AI宠物",
   "main": "main/index.js",
   "scripts": {
     "start": ".\\node_modules\\electron\\dist\\electron.exe .",
@@ -9,8 +9,8 @@
     "dist": "electron-builder"
   },
   "build": {
-    "appId": "com.desktop.pet",
-    "productName": "桌面宠物",
+    "appId": "com.ty.ai",
+    "productName": "TY AI",
     "files": [
       "main/**/*",
       "renderer/**/*",

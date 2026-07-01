@@ -22,11 +22,11 @@ contextBridge.exposeInMainWorld('petAPI', {
   hideWindow: () => {
     ipcRenderer.send('pet:hide');
   },
+  showContextMenu: (screenX, screenY) => {
+    ipcRenderer.send('pet:show-ctx-menu', screenX, screenY);
+  },
   openContextMenu: (x, y) => {
     ipcRenderer.send('pet:context-menu', x, y);
-  },
-  showSpeech: (text, force) => {
-    ipcRenderer.send('pet:show-speech', text, !!force);
   },
   videoDuration: (state, duration) => {
     ipcRenderer.send('pet:video-duration', state, duration);
@@ -36,5 +36,14 @@ contextBridge.exposeInMainWorld('petAPI', {
   },
   saveSize: () => {
     ipcRenderer.send('pet:save-size');
+  },
+  triggerAnimation: (animId) => {
+    ipcRenderer.send('pet:preview', animId);
+  },
+  showSettings: () => {
+    ipcRenderer.send('pet:show-settings');
+  },
+  quitApp: () => {
+    ipcRenderer.send('pet:quit');
   },
 });

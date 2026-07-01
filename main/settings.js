@@ -20,8 +20,7 @@ const DEFAULTS = {
   speechTexts: {
     greet: '点击天依干嘛',
     playful: '不要欺负天依嘛',
-    squat: '天依站累了',
-    typing: '努力敲字中'
+    squat: '天依站累了'
   }
 };
 

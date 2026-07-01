@@ -71,3 +71,117 @@ html, body {
 video {
   display: none !important;
 }
+
+/* ===== 对话气泡 ===== */
+.speech-bubble {
+  position: absolute;
+  top: -36px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 10px;
+  font-size: 13px;
+  color: #333;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  z-index: 20;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.speech-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid rgba(255, 255, 255, 0.92);
+}
+.speech-bubble.visible {
+  opacity: 1;
+}
+
+/* ===== 自定义右键菜单 ===== */
+.ctx-menu {
+  position: fixed;
+  z-index: 100;
+  min-width: 140px;
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  background: rgba(30, 30, 45, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transform: scale(0.92) translateY(-4px);
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.ctx-menu.open {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  pointer-events: auto;
+}
+.ctx-menu .menu-section {
+  padding: 4px 0;
+}
+.ctx-menu .menu-section + .menu-section {
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.ctx-menu .menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  color: rgba(255,255,255,0.85);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s;
+}
+.ctx-menu .menu-item:hover {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+}
+.ctx-menu .menu-item .icon {
+  font-size: 14px;
+  width: 18px;
+  text-align: center;
+}
+.ctx-menu .menu-item .label {
+  flex: 1;
+}
+.ctx-menu .menu-item .badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.4);
+}
+.ctx-menu::-webkit-scrollbar {
+  width: 3px;
+}
+.ctx-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+.ctx-menu::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 2px;
+}
+
+.ctx-menu .menu-item.action-danger {
+  color: rgba(255,120,120,0.8);
+}
+.ctx-menu .menu-item.action-danger:hover {
+  background: rgba(255,60,60,0.2);
+  color: #ff6b6b;
+}

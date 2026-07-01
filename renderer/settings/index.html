@@ -5,160 +5,118 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline';">
   <link rel="stylesheet" href="style.css">
-  <title>桌面宠物 - 管理</title>
+  <title>TY AI - 管理</title>
 </head>
 <body>
   <div class="container">
+    <!-- Header -->
     <header>
-      <div class="header-content">
-        <div class="header-icon">🐾</div>
-        <div>
-          <h1>桌面宠物</h1>
-          <span class="header-sub">管理面板</span>
+      <div class="header-top">
+        <div class="header-title">
+          <div class="header-logo">🤖</div>
+          <div>
+            <h1>TY AI</h1>
+            <span class="header-sub">管理面板</span>
+          </div>
         </div>
-      </div>
-      <div class="state-wrapper">
-        <span class="state-dot" id="stateDot"></span>
-        <span id="currentState">待机中</span>
+        <div class="state-pill" id="statePill">
+          <span class="state-dot" id="stateDot"></span>
+          <span id="currentState">待机中</span>
+        </div>
       </div>
     </header>
 
-    <div class="card">
-      <div class="card-header">
-        <span class="card-icon">📊</span>
-        <h2>状态信息</h2>
+    <!-- Status -->
+    <div class="status-row">
+      <div class="stat-card">
+        <span class="stat-icon">🎬</span>
+        <div>
+          <span class="stat-value" id="statAnimName">待机</span>
+          <span class="stat-label">当前动画</span>
+        </div>
       </div>
-      <div class="info-grid">
-        <div class="info-item">
-          <span class="info-label">当前动画</span>
-          <span class="info-value" id="stateDisplay">待机</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">随机动作</span>
-          <span class="info-value" id="randomStatus">已启用</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">动画数量</span>
-          <span class="info-value">5</span>
+      <div class="stat-card">
+        <span class="stat-icon">🔄</span>
+        <div>
+          <span class="stat-value" id="randomStatus">已启用</span>
+          <span class="stat-label">随机动作</span>
         </div>
       </div>
     </div>
 
+    <!-- Animations -->
     <div class="card">
-      <div class="card-header">
-        <span class="card-icon">🎬</span>
-        <h2>动画列表</h2>
+      <div class="card-head">
+        <span>🎬 动画列表</span>
         <span class="card-badge">点击预览</span>
       </div>
-      <div class="anim-list" id="animList">
-        <div class="anim-item" data-id="idle">
-          <div class="anim-left">
-            <span class="anim-icon">💤</span>
-            <span class="anim-name">待机</span>
-          </div>
-          <span class="anim-tag loop">循环</span>
-        </div>
-        <div class="anim-item" data-id="greet">
-          <div class="anim-left">
-            <span class="anim-icon">👋</span>
-            <span class="anim-name">打招呼</span>
-          </div>
-          <span class="anim-tag">单次</span>
-        </div>
-        <div class="anim-item" data-id="playful">
-          <div class="anim-left">
-            <span class="anim-icon">🎉</span>
-            <span class="anim-name">调皮</span>
-          </div>
-          <span class="anim-tag">单次</span>
-        </div>
-        <div class="anim-item" data-id="squat">
-          <div class="anim-left">
-            <span class="anim-icon">🪑</span>
-            <span class="anim-name">蹲下</span>
-          </div>
-          <span class="anim-tag">单次</span>
-        </div>
-        <div class="anim-item" data-id="typing">
-          <div class="anim-left">
-            <span class="anim-icon">⌨️</span>
-            <span class="anim-name">打字</span>
-          </div>
-          <span class="anim-tag">单次</span>
-        </div>
-      </div>
+      <div class="anim-grid" id="animGrid"></div>
     </div>
 
+    <!-- Speech -->
     <div class="card">
-      <div class="card-header">
-        <span class="card-icon">💬</span>
-        <h2>对话文本</h2>
+      <div class="card-head">
+        <span>💬 对话文本</span>
         <span class="card-badge">可编辑</span>
       </div>
       <div class="speech-list">
         <div class="speech-row">
           <label>打招呼</label>
-          <input type="text" id="speechGreet" class="input-speech" maxlength="50" placeholder="点击时说的话">
+          <input type="text" id="speechGreet" maxlength="50" placeholder="点击时说的话">
         </div>
         <div class="speech-row">
           <label>调皮</label>
-          <input type="text" id="speechPlayful" class="input-speech" maxlength="50" placeholder="快速点击时说的话">
+          <input type="text" id="speechPlayful" maxlength="50" placeholder="快速点击时说的话">
         </div>
         <div class="speech-row">
           <label>蹲下</label>
-          <input type="text" id="speechSquat" class="input-speech" maxlength="50" placeholder="随机动作时说的话">
-        </div>
-        <div class="speech-row">
-          <label>打字</label>
-          <input type="text" id="speechTyping" class="input-speech" maxlength="50" placeholder="检测到键盘时说的话">
+          <input type="text" id="speechSquat" maxlength="50" placeholder="随机动作时说的话">
         </div>
       </div>
     </div>
 
+    <!-- Settings -->
     <div class="card">
-      <div class="card-header">
-        <span class="card-icon">⚙️</span>
-        <h2>设置</h2>
-      </div>
+      <div class="card-head"><span>⚙️ 设置</span></div>
       <div class="settings-group">
-        <label class="setting-row">
-          <span class="setting-info">
-            <span class="setting-name">窗口置顶</span>
-            <span class="setting-desc">宠物始终保持在其他窗口上方</span>
-          </span>
+        <label class="s-row">
+          <div class="s-info">
+            <span class="s-name">窗口置顶</span>
+            <span class="s-desc">宠物始终保持在其他窗口上方</span>
+          </div>
           <input type="checkbox" id="chkAlwaysOnTop" checked>
-          <span class="toggle-track"></span>
+          <span class="toggle"></span>
         </label>
-        <label class="setting-row">
-          <span class="setting-info">
-            <span class="setting-name">随机动作</span>
-            <span class="setting-desc">每隔一段时间自动播放蹲下动画</span>
-          </span>
+        <label class="s-row">
+          <div class="s-info">
+            <span class="s-name">随机动作</span>
+            <span class="s-desc">空闲时自动播放随机动画</span>
+          </div>
           <input type="checkbox" id="chkRandom" checked>
-          <span class="toggle-track"></span>
+          <span class="toggle"></span>
         </label>
-        <label class="setting-row interval-row">
-          <span class="setting-info">
-            <span class="setting-name">时间间隔</span>
-            <span class="setting-desc">随机动作触发的秒数</span>
-          </span>
-          <input type="number" id="randomInterval" value="120" min="30" max="600">
-        </label>
-        <label class="setting-row">
-          <span class="setting-info">
-            <span class="setting-name">开机自启</span>
-            <span class="setting-desc">系统启动时自动运行</span>
-          </span>
+        <div class="s-row s-row-noclick">
+          <div class="s-info">
+            <span class="s-name">时间间隔</span>
+            <span class="s-desc">随机动作触发的秒数</span>
+          </div>
+          <input type="number" id="randomInterval" value="20" min="10" max="600">
+        </div>
+        <label class="s-row">
+          <div class="s-info">
+            <span class="s-name">开机自启</span>
+            <span class="s-desc">系统启动时自动运行</span>
+          </div>
           <input type="checkbox" id="chkAutoStart">
-          <span class="toggle-track"></span>
+          <span class="toggle"></span>
         </label>
       </div>
     </div>
 
     <footer>
-      <span>桌面宠物 v2.0</span>
+      <span>🤖 TY AI</span>
       <span>·</span>
-      <span>Electron</span>
+      <span>v2.0</span>
     </footer>
   </div>
   <script src="app.js"></script>

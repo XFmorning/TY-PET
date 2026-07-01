@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, screen } = require('electron');
 const path = require('path');
 const { StateMachine, STATES } = require('./state-machine');
 const { createTray } = require('./tray');
@@ -6,18 +6,22 @@ const { getByState, getById } = require('./animations');
 const settings = require('./settings');
 const keyboardMonitor = require('./keyboard-monitor');
 
+// 内存优化：限制渲染进程数、禁用磁盘缓存、限制 JS 堆
+app.commandLine.appendSwitch('renderer-process-limit', '1');
+app.commandLine.appendSwitch('disk-cache-size', '0');
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=64');
+
 // 关闭硬件加速，修复透明 WebM 渲染黑底问题
 app.disableHardwareAcceleration();
 
 let mainWindow = null;
 let settingsWindow = null;
-let speechWindow = null;
 let tray = null;
 const stateMachine = new StateMachine();
 let isQuitting = false;
 let randomTimer = null;
-let speechHideTimer = null;
 let keyboardMonitorTimer = null;
+let ctxMenuWindow = null;
 let lastGreetTime = 0;
 const stateCooldownUntil = {};     // state → 冷却结束时间戳
 const videoDurations = {};         // state → 视频时长(秒)
@@ -28,6 +32,7 @@ const WORK_KEY_THRESHOLD = 20;     // 累计 20 次按键 → 开始工作
 const WORK_IDLE_TIMEOUT = 6000;    // 6 秒无打字 → 工作结束
 let workPhase = 'idle';            // idle | work-start | working | work-end
 let workIdleTimer = null;
+let workSequence = null;  // 右键手动串联播放：'work-start' → 'working' → 'work-end'
 
 function createPetWindow() {
   const savedW = settings.get('windowWidth') || 300;
@@ -73,13 +78,14 @@ function createPetWindow() {
   return mainWindow;
 }
 
-function createSettingsWindow() {
+function getSettingsWindow() {
+  if (settingsWindow && !settingsWindow.isDestroyed()) return settingsWindow;
+
   settingsWindow = new BrowserWindow({
     width: 540,
     height: 620,
-    show: false,
     resizable: false,
-    title: '桌面宠物管理',
+    title: 'TY AI 管理',
     webPreferences: {
       preload: path.join(__dirname, 'preload-settings.js'),
       nodeIntegration: false,
@@ -89,38 +95,19 @@ function createSettingsWindow() {
   });
 
   settingsWindow.loadFile(path.join(__dirname, '..', 'renderer', 'settings', 'index.html'));
+  settingsWindow.on('closed', () => {
+    settingsWindow = null;
+  });
   settingsWindow.on('close', (e) => {
-    if (!settingsWindow || isQuitting) return;
+    if (isQuitting) return;
     e.preventDefault();
-    settingsWindow.hide();
+    if (settingsWindow) {
+      settingsWindow.destroy();
+      settingsWindow = null;
+    }
   });
 
   return settingsWindow;
-}
-
-function createSpeechWindow() {
-  speechWindow = new BrowserWindow({
-    width: 200,
-    height: 36,
-    transparent: true,
-    frame: false,
-    alwaysOnTop: true,
-    resizable: false,
-    skipTaskbar: true,
-    hasShadow: false,
-    show: false,
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false
-    }
-  });
-  speechWindow.loadFile(path.join(__dirname, '..', 'renderer', 'speech-bubble', 'index.html'));
-  speechWindow.on('close', (e) => {
-    if (!speechWindow || isQuitting) return;
-    e.preventDefault();
-    speechWindow.hide();
-  });
-  return speechWindow;
 }
 
 function playAnimation(animationState) {
@@ -225,7 +212,28 @@ function animateRestoreSize(targetW, targetH) {
 
 // IPC: 视频播放完毕回到 idle / 或驱动工作循环下一步
 ipcMain.on('pet:animation-ended', () => {
-  // 工作循环：开始工作 → 工作中 → 工作结束 → idle
+  // 右键手动串联播放：开始打字 → 打字中(不循环) → 打字结束
+  if (workSequence) {
+    if (workSequence === 'work-start') {
+      workSequence = 'working';
+      const anim = getByState(STATES.WORKING);
+      if (anim && mainWindow) {
+        stateMachine.transition(STATES.WORKING);
+        mainWindow.webContents.send('pet:play', {
+          ...anim, loop: false, speechText: '', forceSpeech: false
+        });
+      }
+      return;
+    }
+    if (workSequence === 'working') {
+      workSequence = null;
+      stateMachine.transition(STATES.WORK_END);
+      playAnimation(STATES.WORK_END);
+      return;
+    }
+  }
+
+  // 键盘驱动的工作循环：开始工作 → 工作中 → 工作结束 → idle
   if (workPhase === 'work-start') {
     workPhase = 'working';
     stateMachine.transition(STATES.WORKING);
@@ -288,6 +296,20 @@ ipcMain.handle('settings:set', (_e, key, value) => {
 
 // IPC: 预览动画
 ipcMain.on('pet:preview', (_e, animId) => {
+  // 手动串联播放
+  if (animId === 'work-sequence') {
+    workSequence = 'work-start';
+    const anim = getByState(STATES.WORK_START);
+    if (anim && mainWindow) {
+      if (!mainWindow.isVisible()) mainWindow.show();
+      stateMachine.transition(STATES.WORK_START);
+      mainWindow.webContents.send('pet:play', {
+        ...anim, speechText: '', forceSpeech: false
+      });
+    }
+    return;
+  }
+
   const anim = getById(animId);
   if (anim && mainWindow) {
     if (!mainWindow.isVisible()) mainWindow.show();
@@ -314,32 +336,14 @@ ipcMain.on('pet:hide', () => {
   if (mainWindow) mainWindow.hide();
 });
 
+ipcMain.on('pet:show-settings', () => {
+  const win = getSettingsWindow();
+  win.show();
+  win.focus();
+});
 
-// IPC: 显示对话气泡（独立窗口，3秒防抖）
-let lastSpeechTime = 0;
-ipcMain.on('pet:show-speech', (_e, text, force) => {
-  const now = Date.now();
-  if (!force && now - lastSpeechTime < 3000) return;
-  lastSpeechTime = now;
-
-  if (!speechWindow || speechWindow.isDestroyed() || !mainWindow || mainWindow.isDestroyed()) return;
-
-  const [petX, petY] = mainWindow.getPosition();
-  const [petW] = mainWindow.getSize();
-  const bubW = 200, bubH = 36;
-  speechWindow.setBounds({
-    x: petX + Math.round((petW - bubW) / 2),
-    y: petY - bubH - 4,
-    width: bubW,
-    height: bubH
-  });
-  speechWindow.webContents.send('speech:show', text);
-  speechWindow.show();
-
-  clearTimeout(speechHideTimer);
-  speechHideTimer = setTimeout(() => {
-    if (speechWindow && !speechWindow.isDestroyed()) speechWindow.hide();
-  }, 3000);
+ipcMain.on('pet:quit', () => {
+  app.quit();
 });
 
 // IPC: 拖放窗口（只移位置，不碰尺寸）
@@ -347,6 +351,94 @@ ipcMain.on('pet:move-window', (_e, x, y) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.setPosition(Math.round(x), Math.round(y));
   }
+});
+
+// ===== 右键菜单弹出窗口 =====
+function createCtxMenuWindow() {
+  if (ctxMenuWindow && !ctxMenuWindow.isDestroyed()) {
+    ctxMenuWindow.destroy();
+  }
+  ctxMenuWindow = new BrowserWindow({
+    width: 130,
+    height: 320,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    hasShadow: false,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload-ctx-menu.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: false
+    }
+  });
+  ctxMenuWindow.loadFile(path.join(__dirname, '..', 'renderer', 'ctx-menu', 'index.html'));
+  ctxMenuWindow.on('blur', () => {
+    if (ctxMenuWindow && !ctxMenuWindow.isDestroyed()) ctxMenuWindow.hide();
+  });
+  return ctxMenuWindow;
+}
+
+ipcMain.on('pet:show-ctx-menu', (_e, screenX, screenY) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const [petX, petY] = mainWindow.getPosition();
+  const [petW, petH] = mainWindow.getSize();
+  const win = createCtxMenuWindow();
+  const mw = 130, mh = 280;
+  // 默认在 pet 右侧，超出屏幕则放左侧
+  const display = screen.getDisplayMatching({ x: petX, y: petY, width: petW, height: petH });
+  const { x: screenX0, width: screenW } = display.workArea;
+  const rightEdge = petX + petW + 4 + mw;
+  const wx = rightEdge > screenX0 + screenW
+    ? petX - mw - 4
+    : petX + petW + 4;
+  const wy = Math.max(4, Math.min(screenY - mh / 2, petY + petH - mh - 4));
+  win.setPosition(Math.round(wx), Math.round(wy));
+  win.show();
+});
+
+ipcMain.on('ctx:trigger', (_e, animId) => {
+  // 手动串联播放：开始打字 → 打字中 → 打字结束
+  if (animId === 'work-sequence') {
+    workSequence = 'work-start';
+    const anim = getByState(STATES.WORK_START);
+    if (anim && mainWindow) {
+      stateMachine.transition(STATES.WORK_START);
+      mainWindow.webContents.send('pet:play', {
+        ...anim, speechText: '', forceSpeech: false
+      });
+    }
+    if (ctxMenuWindow && !ctxMenuWindow.isDestroyed()) ctxMenuWindow.hide();
+    return;
+  }
+
+  const anim = getById(animId);
+  if (anim && mainWindow) {
+    stateMachine.transition(anim.state);
+    playAnimation(anim.state);
+  }
+  if (ctxMenuWindow && !ctxMenuWindow.isDestroyed()) ctxMenuWindow.hide();
+});
+
+ipcMain.on('ctx:hide', () => {
+  if (mainWindow) mainWindow.hide();
+  if (ctxMenuWindow && !ctxMenuWindow.isDestroyed()) ctxMenuWindow.hide();
+});
+
+ipcMain.on('ctx:settings', () => {
+  const win = getSettingsWindow();
+  win.show();
+  win.focus();
+  if (ctxMenuWindow && !ctxMenuWindow.isDestroyed()) ctxMenuWindow.hide();
+});
+
+ipcMain.on('ctx:quit', () => { app.quit(); });
+
+ipcMain.on('ctx:close', () => {
+  if (ctxMenuWindow && !ctxMenuWindow.isDestroyed()) ctxMenuWindow.hide();
 });
 
 // IPC: 宠物右键菜单（和托盘风格一致）
@@ -361,10 +453,16 @@ ipcMain.on('pet:context-menu', (event, x, y) => {
     {
       label: '打开管理',
       click: () => {
-        if (settingsWindow) {
-          settingsWindow.show();
-          settingsWindow.focus();
-        }
+        const win = getSettingsWindow();
+        win.show();
+        win.focus();
+      }
+    },
+    {
+      label: '跳舞',
+      click: () => {
+        stateMachine.transition(STATES.DANCE);
+        playAnimation(STATES.DANCE);
       }
     },
     { type: 'separator' },
@@ -378,9 +476,7 @@ ipcMain.on('pet:context-menu', (event, x, y) => {
 
 app.whenReady().then(() => {
   createPetWindow();
-  createSettingsWindow();
-  createSpeechWindow();
-  tray = createTray(mainWindow, settingsWindow);
+  tray = createTray(mainWindow, getSettingsWindow);
 
   scheduleRandomAction();
 
@@ -435,11 +531,10 @@ app.whenReady().then(() => {
 app.on('before-quit', () => {
   isQuitting = true;
   keyboardMonitor.stopKeyboardMonitor(keyboardMonitorTimer);
+  if (ctxMenuWindow && !ctxMenuWindow.isDestroyed()) ctxMenuWindow.destroy();
 });
 
 app.on('window-all-closed', () => {
   clearTimeout(randomTimer);
-  clearTimeout(speechHideTimer);
-  if (speechWindow && !speechWindow.isDestroyed()) speechWindow.destroy();
   app.exit(0);
 });
